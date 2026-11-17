@@ -1,0 +1,5 @@
+{
+  "name": "lovegroove-catalogue-worker",
+  "private": true,
+  "type": "module"
+}

@@ -1,0 +1,13 @@
+{
+  // Test Worker for the Lovegroove vinyl catalogue (separate from lovegroove.app).
+  "name": "lovegroove-catalogue-test",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  "r2_buckets": [
+    { "binding": "CATALOGUE", "bucket_name": "lovegroove-catalogue" }
+  ],
+  "vars": {
+    "CATALOGUE_KEY": "test/sample.pack"
+  }
+}

@@ -1,0 +1,77 @@
+# Builds the vinyl catalogue from Discogs' monthly CC0 data dump and uploads it to R2.
+# Needs repository secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY
+# (an R2 API token with Object Read & Write on the lovegroove-catalogue bucket).
+name: Build catalogue
+
+on:
+  workflow_dispatch:
+    inputs:
+      dump:
+        description: "Dump date, e.g. 20261101 (empty = 1st of this month)"
+        required: false
+      key:
+        description: "Where to put it in the R2 bucket"
+        required: false
+        default: "test/full.pack"
+      limit:
+        description: "Stop after this many releases (0 = whole dump)"
+        required: false
+        default: "0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-catalogue
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      WORK: /mnt/catalogue
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo mkdir -p "$WORK" && sudo chown "$USER" "$WORK"
+          df -h / /mnt
+
+      - name: Pick dump
+        id: dump
+        run: |
+          DUMP="${{ inputs.dump }}"
+          if [ -z "$DUMP" ]; then DUMP="$(date -u +%Y%m01)"; fi
+          echo "dump=$DUMP" >> "$GITHUB_OUTPUT"
+          echo "Dump $DUMP -> ${{ inputs.key }}"
+
+      - name: Read dump and keep vinyl
+        run: |
+          python3 build_catalogue.py --dump "${{ steps.dump.outputs.dump }}" \
+            --limit "${{ inputs.limit }}" --out "$WORK/catalogue.sqlite"
+          ls -la "$WORK"
+
+      - name: Pack for R2
+        env:
+          TMPDIR: /mnt/catalogue
+        run: |
+          python3 pack_catalogue.py --db "$WORK/catalogue.sqlite" --out "$WORK/catalogue.pack"
+          rm "$WORK/catalogue.sqlite"
+          ls -la "$WORK"; df -h /mnt
+
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # R2 doesn't accept the newer default checksums on multipart uploads.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          aws configure set default.s3.multipart_chunksize 64MB
+          aws s3 cp "$WORK/catalogue.pack" "s3://lovegroove-catalogue/${{ inputs.key }}" \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
+            --content-type application/octet-stream --no-progress
