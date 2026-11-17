@@ -50,6 +50,7 @@ export class Pack {
     this.dataStart = 16 + headLength + indexLength;
     if (this.dataStart > buf.length) buf = await this.range(0, this.dataStart, ctx);
     const header = await gunzipJSON(buf.subarray(16, 16 + headLength));
+    if (header.version !== 3) throw new Error(`catalogue format ${header.version}, this Worker reads 3`);
     const index = buf.subarray(16 + headLength, this.dataStart);
     this.meta = header.meta;
     this.builtAt = header.built_at;
@@ -138,13 +139,10 @@ export class Pack {
     return undefined;
   }
 
-  // All entries whose text key starts with prefix (this block and, if needed, the next).
+  // Entries whose text key starts with prefix, from the one block where the prefix sorts.
   async prefix(section, prefix, ctx) {
-    const s = this.sections[section];
-    const first = Math.max(this.blockIndex(section, prefix), 0);
-    const indexes = [first];
-    for (let i = first + 1; i < s.first_keys.length && indexes.length < 3 && s.first_keys[i].startsWith(prefix); i++) indexes.push(i);
-    const blocks = await Promise.all(indexes.map((i) => this.block(section, i, ctx)));
-    return blocks.flat().filter(([k]) => k.startsWith(prefix));
+    const index = this.blockIndex(section, prefix);
+    const entries = await this.block(section, Math.max(index, 0), ctx);
+    return entries.filter(([k]) => k.startsWith(prefix));
   }
 }

@@ -4,3 +4,4 @@ node_modules/
 *.pack
 *.xml.gz
 .DS_Store
+build/

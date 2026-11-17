@@ -20,40 +20,50 @@ function pack(env, ctx) {
 
 const RESULTS = 25;
 
+// Search entries are [master_id or 0, release_id, artist, title, year, pressings].
+const ARTIST = 2, TITLE = 3, PRESSINGS = 5;
+const toResult = ([master, release, artist, title, year, pressings]) => ({
+  type: master ? 'album' : 'pressing', master_id: master || null, release_id: release, artist, title, year, pressings,
+});
+
 async function search(p, q, ctx) {
   const all = words(q).slice(0, 6);
   if (!all.length) return [];
   const exact = all.slice(0, -1);
   const last = all[all.length - 1];
 
-  const [exactLists, prefixEntries] = await Promise.all([
+  // One block read per word, all at once. The last word may still be being typed:
+  // alone it is matched as a prefix; after other words it only filters their lists.
+  const [exactLists, lastList, prefixEntries] = await Promise.all([
     Promise.all(exact.map((w) => p.get('search', w, ctx))),
-    last.length >= 2 ? p.prefix('search', last, ctx) : p.get('search', last, ctx).then((v) => (v ? [[last, v]] : [])),
+    exact.length ? p.get('search', last, ctx) : undefined,
+    exact.length ? [] : last.length >= 2 ? p.prefix('search', last, ctx) : p.get('search', last, ctx).then((v) => (v ? [[last, v]] : [])),
   ]);
-  if (exactLists.some((v) => !v) || !prefixEntries.length) return [];
+  if (exactLists.some((v) => !v)) return [];
 
-  // The partial last word may match several words ("daft pu" -> punk, pure...): merge them.
-  const merged = new Map();
-  let prefixTotal = 0;
-  for (const [, [total, docs]] of prefixEntries) {
-    prefixTotal += total;
-    for (const d of docs) merged.set(`${d.type}${d.master_id ?? d.release_id}`, d);
+  if (!exact.length) {
+    // "bjo" -> bjork, bjorn...: merge those words' lists, most pressings first.
+    const merged = new Map();
+    for (const [, [, docs]] of prefixEntries) for (const d of docs) merged.set(`${d[0]}:${d[1]}`, d);
+    return [...merged.values()].sort((a, b) => b[PRESSINGS] - a[PRESSINGS]).slice(0, RESULTS).map(toResult);
   }
-  const lists = exactLists.map(([total, docs]) => ({ total, docs }));
-  lists.push({ total: prefixTotal, docs: [...merged.values()].sort((a, b) => b.pressings - a.pressings) });
-
-  // Start from the rarest word's list and keep entries whose artist + title hold every word.
-  lists.sort((a, b) => a.total - b.total);
-  const matches = (d) => {
-    const ws = words(`${d.artist} ${d.title}`);
-    return exact.every((w) => ws.includes(w)) && ws.some((w) => w.startsWith(last));
+  // Filter the rarest complete word's list: keep entries whose artist + title hold every
+  // word, the last as a prefix. If the last word is itself a word ("abbey" in "the beatles
+  // abbey") its list may be rarer, so filter that too and merge.
+  const matches = (list) => {
+    const found = [];
+    for (const d of list) {
+      const ws = words(`${d[ARTIST]} ${d[TITLE]}`);
+      if (exact.every((w) => ws.includes(w)) && ws.some((w) => w.startsWith(last))) found.push(d);
+      if (found.length >= RESULTS) break;
+    }
+    return found;
   };
-  const out = [];
-  for (const d of lists[0].docs) {
-    if (all.length === 1 || matches(d)) out.push(d);
-    if (out.length >= RESULTS) break;
-  }
-  return out;
+  const rarest = exactLists.reduce((a, b) => (b[0] < a[0] ? b : a));
+  const merged = new Map();
+  for (const d of matches(rarest[1])) merged.set(`${d[0]}:${d[1]}`, d);
+  if (lastList && lastList[0] < rarest[0]) for (const d of matches(lastList[1])) merged.set(`${d[0]}:${d[1]}`, d);
+  return [...merged.values()].sort((a, b) => b[PRESSINGS] - a[PRESSINGS]).slice(0, RESULTS).map(toResult);
 }
 
 async function route(url, env, ctx) {
@@ -68,7 +78,8 @@ async function route(url, env, ctx) {
     return album ? { album } : null;
   }
   if (kind === 'barcode' && /^\d{8,14}$/.test(value || '')) {
-    return { barcode: value, pressings: (await p.get('barcode', value, ctx)) || [] };
+    // Stored without leading zeros, so a UPC-12 and its EAN-13 form find the same pressings.
+    return { barcode: value, pressings: (await p.get('barcode', value.replace(/^0+/, ''), ctx)) || [] };
   }
   if (kind === 'search') {
     return { results: await search(p, url.searchParams.get('q') || '', ctx) };

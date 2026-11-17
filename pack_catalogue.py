@@ -20,8 +20,10 @@ block that can hold a key and fetches only that block.
 Sections:
   release  key: Discogs release id      value: the full pressing
   master   key: Discogs master id       value: the album and all its vinyl pressings (summaries)
-  barcode  key: barcode digits (text)   value: pressings with that barcode (summaries)
-  search   key: word (text)             value: [total, [albums...]] best first, capped
+  barcode  key: barcode digits without leading zeros (text, so UPC-12 and EAN-13 match)
+                                        value: pressings with that barcode (summaries)
+  search   key: word (text)             value: [total, [albums...]] best first, capped; each album is
+                                        [master_id or 0, release_id, artist, title, year, pressings]
 """
 import argparse
 import gzip
@@ -158,9 +160,7 @@ def main():
                  "main_release_id": main_row["id"], "pressings": pressings}
         master.add(current, album)
         catnos = " ".join(p["catno"] or "" for p in pressings)
-        index_doc(f"m{current}", {"type": "album", "master_id": current, "release_id": main_row["id"],
-                                  "artist": album["artist"], "title": album["title"], "year": album["year"],
-                                  "pressings": len(pressings)},
+        index_doc(f"m{current}", [current, main_row["id"], album["artist"], album["title"], album["year"], len(pressings)],
                   f'{album["artist"]} {album["title"]} {catnos}', len(pressings))
 
     for row in db.execute("SELECT * FROM releases WHERE master_id IS NOT NULL ORDER BY master_id, id"):
@@ -175,20 +175,22 @@ def main():
     # Pressings without an album are searchable on their own.
     for row in db.execute("SELECT * FROM releases WHERE master_id IS NULL"):
         s = summary(row)
-        index_doc(f"r{row['id']}", {"type": "pressing", "master_id": None, "release_id": row["id"],
-                                     "artist": s["artist"], "title": s["title"], "year": s["year"], "pressings": 1},
+        index_doc(f"r{row['id']}", [0, row["id"], s["artist"], s["title"], s["year"], 1],
                   f'{s["artist"]} {s["title"]} {s["catno"] or ""}', 1)
     work.commit()
 
     # 3. Barcodes.
     barcode = SectionWriter("barcode", False)
-    current, group = None, []
-    for row in db.execute("SELECT b.code AS code, r.* FROM barcodes b JOIN releases r ON r.id = b.release_id ORDER BY b.code, r.id"):
+    current, group, seen = None, [], set()
+    for row in db.execute("SELECT ltrim(b.code, '0') AS code, r.* FROM barcodes b JOIN releases r ON r.id = b.release_id "
+                          "WHERE ltrim(b.code, '0') != '' ORDER BY 1, r.id"):
         if row["code"] != current:
             if group:
                 barcode.add(current, group)
-            current, group = row["code"], []
-        group.append(summary(row))
+            current, group, seen = row["code"], [], set()
+        if row["id"] not in seen:  # the same pressing may list both forms
+            seen.add(row["id"])
+            group.append(summary(row))
     if group:
         barcode.add(current, group)
     barcode.finish()
@@ -220,7 +222,7 @@ def main():
 
     # 5. Assemble: header first, then the sections.
     sections = [release, master, barcode, search]
-    header = {"version": 2, "meta": meta, "built_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "sections": {}}
+    header = {"version": 3, "meta": meta, "built_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "sections": {}}
     binary = bytearray()
     base = 0
     for s in sections:
