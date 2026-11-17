@@ -76,8 +76,16 @@ jobs:
 
       - name: Read dump and keep vinyl
         run: |
-          python3 build_catalogue.py --dump "${{ steps.dump.outputs.dump }}" \
-            --limit "$LIMIT" --out "$WORK/catalogue.sqlite"
+          # Discogs' server can't resume a download, so if it drops, start again (up to 3 tries).
+          for TRY in 1 2 3; do
+            if python3 build_catalogue.py --dump "${{ steps.dump.outputs.dump }}" \
+                 --limit "$LIMIT" --out "$WORK/catalogue.sqlite"; then
+              break
+            fi
+            if [ "$TRY" = 3 ]; then echo "::error::Reading the Discogs dump failed 3 times."; exit 1; fi
+            echo "::warning::Reading the dump failed (try $TRY); retrying in 5 minutes."
+            sleep 300
+          done
           ls -la "$WORK"
 
       - name: Check it looks complete
