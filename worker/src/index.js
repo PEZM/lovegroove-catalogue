@@ -87,30 +87,22 @@ async function route(url, env, ctx) {
   return undefined;
 }
 
-// Raw R2 timings: sequential and parallel range reads of different sizes.
-async function probe(env) {
-  const key = env.CATALOGUE_KEY;
-  const size = (await env.CATALOGUE.head(key)).size;
-  const read = async (length) => {
-    const o = await env.CATALOGUE.get(key, { range: { offset: Math.floor(Math.random() * (size - length)), length } });
-    await o.arrayBuffer();
-  };
-  const time = async (fn) => { const t = Date.now(); await fn(); return Date.now() - t; };
-  const out = {};
-  for (const length of [4096, 65536, 262144]) {
-    const seq = [];
-    for (let i = 0; i < 5; i++) seq.push(await time(() => read(length)));
-    out[`seq_${length / 1024}KB`] = seq;
-    out[`parallel10_${length / 1024}KB`] = await time(() => Promise.all(Array.from({ length: 10 }, () => read(length))));
-  }
-  return Response.json(out);
+// Lookups allowed per visitor (IP address) per minute, counted in each Cloudflare
+// location. Set in wrangler.jsonc; keeps a flood of uncached lookups off R2's bill.
+async function allowed(request, env) {
+  if (!env.LIMITER) return true;
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const { success } = await env.LIMITER.limit({ key: ip });
+  return success;
 }
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method !== 'GET') return new Response('Method not allowed', { status: 405 });
-    if (url.pathname === '/_probe') return probe(env);
+    if (!(await allowed(request, env))) {
+      return Response.json({ error: 'too many requests, try again in a minute' }, { status: 429, headers: { 'Retry-After': '60' } });
+    }
     const started = Date.now();
     const cold = !opening;
     for (let attempt = 0; attempt < 2; attempt++) {

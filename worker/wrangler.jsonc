@@ -7,6 +7,10 @@
   "r2_buckets": [
     { "binding": "CATALOGUE", "bucket_name": "lovegroove-catalogue" }
   ],
+  // At most 120 lookups a minute per visitor (period must be 10 or 60 seconds).
+  "ratelimits": [
+    { "name": "LIMITER", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } }
+  ],
   "vars": {
     "CATALOGUE_KEY": "test/sample.pack"
   }
