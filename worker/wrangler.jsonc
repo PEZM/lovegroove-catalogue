@@ -1,5 +1,5 @@
 {
-  // Test Worker for the Lovegroove vinyl catalogue (separate from lovegroove.app).
+  // Lovegroove vinyl catalogue lookups (test address until it moves to lovegroove.app).
   "name": "lovegroove-catalogue-test",
   "main": "src/index.js",
   "compatibility_date": "2026-11-01",
@@ -12,6 +12,6 @@
     { "name": "LIMITER", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } }
   ],
   "vars": {
-    "CATALOGUE_KEY": "test/sample.pack"
+    "CATALOGUE_KEY": "vinyl/current.pack"
   }
 }

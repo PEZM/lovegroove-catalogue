@@ -4,6 +4,9 @@
 name: Build catalogue
 
 on:
+  # Discogs publishes each month's dump on the 1st; build on the 3rd to give it time.
+  schedule:
+    - cron: "0 4 3 * *"
   workflow_dispatch:
     inputs:
       dump:
@@ -12,7 +15,7 @@ on:
       key:
         description: "Where to put it in the R2 bucket"
         required: false
-        default: "test/full.pack"
+        default: "vinyl/current.pack"
       limit:
         description: "Stop after this many releases (0 = whole dump)"
         required: false
@@ -31,6 +34,9 @@ jobs:
     timeout-minutes: 330
     env:
       WORK: /mnt/catalogue
+      # Scheduled runs have no inputs, so fall back to the defaults.
+      KEY: ${{ inputs.key || 'vinyl/current.pack' }}
+      LIMIT: ${{ inputs.limit || '0' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,13 +52,23 @@ jobs:
           DUMP="${{ inputs.dump }}"
           if [ -z "$DUMP" ]; then DUMP="$(date -u +%Y%m01)"; fi
           echo "dump=$DUMP" >> "$GITHUB_OUTPUT"
-          echo "Dump $DUMP -> ${{ inputs.key }}"
+          echo "Dump $DUMP -> $KEY"
 
       - name: Read dump and keep vinyl
         run: |
           python3 build_catalogue.py --dump "${{ steps.dump.outputs.dump }}" \
-            --limit "${{ inputs.limit }}" --out "$WORK/catalogue.sqlite"
+            --limit "$LIMIT" --out "$WORK/catalogue.sqlite"
           ls -la "$WORK"
+
+      - name: Check it looks complete
+        run: |
+          # Don't replace a good catalogue with a broken one (November 2026: 8.1 million).
+          KEPT=$(python3 -c "import sqlite3; print(sqlite3.connect('$WORK/catalogue.sqlite').execute(\"SELECT value FROM meta WHERE key='vinyl_kept'\").fetchone()[0])")
+          echo "Vinyl pressings kept: $KEPT"
+          if [ "$LIMIT" = "0" ] && [ "$KEPT" -lt 7000000 ]; then
+            echo "::error::Only $KEPT vinyl pressings; expected over 7 million. Not uploading."
+            exit 1
+          fi
 
       - name: Pack for R2
         env:
@@ -72,6 +88,6 @@ jobs:
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
         run: |
           aws configure set default.s3.multipart_chunksize 64MB
-          aws s3 cp "$WORK/catalogue.pack" "s3://lovegroove-catalogue/${{ inputs.key }}" \
+          aws s3 cp "$WORK/catalogue.pack" "s3://lovegroove-catalogue/$KEY" \
             --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
             --content-type application/octet-stream --no-progress

@@ -6,7 +6,8 @@ the app shows. No images, user collections or marketplace data.
 
 - `build_catalogue.py` reads the releases dump as it downloads and writes a SQLite database.
 - `pack_catalogue.py` turns that into one packed file in which every lookup is a single block read.
-- `.github/workflows/build-catalogue.yml` runs both on GitHub and uploads the file to Cloudflare R2.
+- `.github/workflows/build-catalogue.yml` runs both on GitHub on the 3rd of each month and replaces
+  `vinyl/current.pack` in Cloudflare R2 (the Worker notices the new file by itself).
 - `worker/` is the Cloudflare Worker that answers lookups from the file:
   `/release/:id`, `/master/:id`, `/barcode/:digits`, `/search?q=`.
 
