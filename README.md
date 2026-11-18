@@ -27,7 +27,7 @@ worker/  (Cloudflare Worker) answers lookups, one block read each
 | `pack_catalogue.py` | Turns that into one packed file (format v3) in which every lookup is a single block read. |
 | `r2_upload.py` | Uploads a file to R2 with Python's standard library only (64 MB parts, retries, aborts cleanly on failure). `--check` just tests the key. |
 | `mac/` | The monthly build on a Mac: script, scheduler install, Keychain setup. See [mac/README.md](mac/README.md). |
-| `worker/` | Cloudflare Worker: `/release/:id`, `/master/:id`, `/barcode/:digits`, `/search?q=`. |
+| `worker/` | Cloudflare Worker: `/release/:id`, `/master/:id`, `/barcode/:digits`, `/search?q=`. Live at **https://catalogue.lovegroove.app** (`wrangler.production.jsonc`); the test copy (`wrangler.jsonc`) stays until old TestFlight builds expire. Deploy both after a code change. |
 | `.github/workflows/build-catalogue.yml` | Same build on GitHub, manual backup only (see below). |
 
 ## Where the monthly build runs

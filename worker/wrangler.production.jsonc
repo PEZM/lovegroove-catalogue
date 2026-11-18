@@ -1,0 +1,29 @@
+{
+  // Lovegroove vinyl catalogue lookups, permanent address for the apps:
+  //   https://catalogue.lovegroove.app
+  // Deploy: npx wrangler deploy -c wrangler.production.jsonc
+  // Same code, R2 file and limits as the test Worker (wrangler.jsonc), which stays up
+  // until the TestFlight builds that use it have expired.
+  "name": "lovegroove-catalogue",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-01",
+  // Only the custom domain below; no workers.dev address.
+  "workers_dev": false,
+  "preview_urls": false,
+  // A Custom Domain: Cloudflare adds the catalogue.lovegroove.app DNS record and
+  // certificate itself. lovegroove.app's own site, records and routes are untouched.
+  "routes": [
+    { "pattern": "catalogue.lovegroove.app", "custom_domain": true }
+  ],
+  "r2_buckets": [
+    { "binding": "CATALOGUE", "bucket_name": "lovegroove-catalogue" }
+  ],
+  // At most 120 lookups a minute per visitor (period must be 10 or 60 seconds).
+  // Its own counter (1002), separate from the test Worker's (1001).
+  "ratelimits": [
+    { "name": "LIMITER", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } }
+  ],
+  "vars": {
+    "CATALOGUE_KEY": "vinyl/current.pack"
+  }
+}
