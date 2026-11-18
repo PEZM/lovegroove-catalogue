@@ -65,10 +65,10 @@ with Discogs off.
 | What | Where | Today (Discogs off) | With the catalogue |
 | --- | --- | --- | --- |
 | Barcode → pressings | `releases(barcode:)`, called first by `search(barcode:)` in `Shelf.swift` | Returns nothing; Shelf then tries MusicBrainz, then Apple | `/barcode/:digits` → `DiscogsRelease`s (Shelf shows them as `.discogs` results, already supported) |
-| Name → pressings (Add a record) | `searchReleases(artist:album:)`, called by `byName()` in `Shelf.swift` | Returns nothing; Shelf uses `MusicBrainz.lookup` | `/search?q=artist album`, keep results whose artist matches (`Normalize.artistsMatch`), then `/release/:id` for the top few (format, label, country). Only when the wanted format is Vinyl |
+| Name → pressings (Add a record) | `searchReleases(artist:album:)`, called by `byName()` in `Shelf.swift` | Returns nothing; Shelf uses `MusicBrainz.lookup` | `/search?q=artist album`, keep results whose artist matches (`Normalize.artistsMatch`), then `/release/:id` for the top few (format, label, country). Only when the wanted format is Vinyl. *As built:* the first matching album's `/master/:id` instead (its pressings already carry format, label and country; 2 lookups); `/release` only for matching pressings with no album |
 | Tracklist | `rawTracklist(for:)` | `id < 0 \|\| !discogsCatalogue` → saved, MusicBrainz, Apple | `id > 0`: saved, then `/release/:id` → `tracks` (and `recordOnly`), then MusicBrainz, Apple. Missing durations: borrow from the album's main pressing (`/master/:id` → `main_release_id` → `/release`), then today's `fillLengths` |
 | Pressing facts (record page) | `fetchPressing(of:)` | MusicBrainz | `id > 0`: `/release/:id` → `Pressing` (formats, "Label – catno", country, year, genres, styles; no notes or credits), URL `discogs.com/release/:id`. 404 → MusicBrainz |
-| Other pressings / Wrong record? | `pressings(like:search:)` | MusicBrainz | `id > 0`, no search: `/release/:id` → `master_id` → `/master/:id` → `PressingChoice`s (main first, then by year, at most 100). With search words, or a MusicBrainz record: `/search?q=` (vinyl). Nothing → MusicBrainz |
+| Other pressings / Wrong record? | `pressings(like:search:)` | MusicBrainz | `id > 0`, no search: `/release/:id` → `master_id` → `/master/:id` → `PressingChoice`s (main first, then by year, at most 100). With search words, or a MusicBrainz record: `/search?q=` (vinyl). Nothing → MusicBrainz. *As built:* typed words cost 2 lookups at most (the search and the first album's `/master`); pressings with no album show the search's title and year only |
 | Recognised song not on the shelf | `findRecord(for:)` step 3 (`skipDiscogs`), `currentRelease()` in `ListeningStateMachine.swift` | Step 3 skipped; MusicBrainz `album(for:)` | Step 3's album search uses the catalogue's `searchReleases`. The song search (`releasesContaining`) has no catalogue equivalent and stays off |
 | Genres for older listens | `fillInMissingGenres()` in `HistoryView.swift`, `genreAndStyle(artist:album:)` | Skipped | `/search?q=` → `/release/:id` → first genre and style (keep the 10-a-visit cap) |
 | Release details panel | `releaseDetails(artist:album:)`, used by `ListeningStateMachine.swift` | Nothing | `/search?q=` → `/release/:id`: styles, genres, tracklist, country, format, year; no notes or credits |
@@ -84,6 +84,8 @@ falling through to today's MusicBrainz code. `get(_:)` keeps refusing Discogs ca
 `discogsCatalogue` is off.
 
 ## Decisions for Pablo before release
+
+**Made 18 Nov 2026:** 1 as suggested (and in Spanish); 2 kept; 3 kept.
 
 1. **Credit line.** Onboarding says "Record details from MusicBrainz, the open music
    encyclopedia." CC0 needs no credit, and `DiscogsCredit` ("Data provided by Discogs") belongs
@@ -179,6 +181,24 @@ Label names can keep Discogs' namesake suffix ("Harvest (2)"); use `DiscogsRelea
 Replies carry `Cache-Control: public, max-age=86400`. Send the User-Agent
 `Lovegroove/<version> +https://lovegroove.app`.
 
+## As built in the iPhone app (18 Nov 2026)
+
+Branch `lovegroove-catalogue` in `Code/iOS` (not merged into main yet). Client:
+`Lovegroove/LovegrooveCatalogue.swift`; tests: `LovegrooveTests/CatalogueTests.swift`.
+
+- Barcode results: official pressings first, then those with "Unofficial Release".
+- Search rows and other pressings show their album's cover (Apple or the Cover Art Archive,
+  found once per album; no Cloudflare calls).
+- Choosing another pressing saves its facts at once, so its page works offline.
+- Settings credit while the catalogue is on: "Record details from MusicBrainz and Discogs'
+  open data."
+- Things the app has to allow for (Android too): formats spell "2×Vinyl" with a real ×, and
+  write "Compilation" / "Maxi-Single" where Discogs exports abbreviate; many vinyl tracklists
+  have no song lengths (Apple's fill them); the Worker splits "Don't" into two words.
+- A new subdomain can be "not found" on a home network for up to 30 minutes (the router
+  remembers asking before it existed; lovegroove.app's SOA negative TTL is 1800 s). The app
+  falls back to MusicBrainz meanwhile.
+
 ## Testing
 
 Debug builds should print which source answered (`📀 catalogue` / `📀 MusicBrainz`), like the
@@ -235,12 +255,12 @@ month, and checks 1, 2 and 5 still pass. The Worker picks up the new file by its
 
 | # | Chat (folder) | What | Status |
 | --- | --- | --- | --- |
-| 1 | iOS (`Code/iOS`) | Catalogue client and switch; the changes above; unit tests for the JSON with the sample replies | Not recorded here; see the iOS chat |
-| 2 | iOS | Checklist on the Simulator and phone; Pablo's decisions 1–3 | Not recorded here; see the iOS chat |
+| 1 | iOS (`Code/iOS`) | Catalogue client and switch; the changes above; unit tests for the JSON with the sample replies | **Done 18 Nov 2026** on branch `lovegroove-catalogue` (commit 165ebfa), not merged into main; 13 catalogue unit tests in `LovegrooveTests/CatalogueTests.swift` |
+| 2 | iOS | Checklist on the Simulator and phone; Pablo's decisions 1–3 | **Done 18 Nov 2026.** Checks 1–12 and 14 pass on the Simulator; check 13 (`discogsCatalogue = true`) checked by reading the code only, to keep Discogs' API untouched. Decisions made (above) |
 | 3 | Catalogue (`Code/Catalogue`) | Permanent address `catalogue.lovegroove.app` | **Done 18 Nov 2026.** Own Worker `lovegroove-catalogue`; every known record checked there, unknown release 404, rate limit 429 with `Retry-After: 60`; $1 budget alert confirmed in place |
-| 3a | iOS | Set the app's constant to `https://catalogue.lovegroove.app` | To do |
+| 3a | iOS | Set the app's constant to `https://catalogue.lovegroove.app` | **Done 18 Nov 2026** on the branch (installed on Pablo's iPhone; to be committed) |
 | 3b | Catalogue | Delete the `lovegroove-catalogue-test` Worker | **Wait** until Pablo says the TestFlight builds using it have expired |
-| 4 | Web (`Code/Web`) | Privacy policy: record lookups now reach Lovegroove's catalogue server | Not recorded here; see the Web chat |
+| 4 | Web (`Code/Web`) | Privacy policy: record lookups now reach Lovegroove's catalogue server | **On hold** (Pablo, 18 Nov 2026): do it once the catalogue is going to ship, or before external TestFlight testers get a build |
 | 5 | iOS | Docs (`CLAUDE.md`, README "Before release", `Services.swift` comment), TestFlight, then release | To do |
 
 Steps 3a and 4 must be done before the App Store release.
