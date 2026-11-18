@@ -1,12 +1,14 @@
 # Builds the vinyl catalogue from Discogs' monthly CC0 data dump and uploads it to R2.
+#
+# Manual backup only. Discogs' download site (behind Cloudflare's bot protection) answers
+# GitHub's servers with 403 Forbidden, so the monthly build runs on a Mac instead; see
+# mac/README.md. This workflow is kept in case Discogs allows cloud downloads again.
+#
 # Needs repository secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY
 # (an R2 API token with Object Read & Write on the lovegroove-catalogue bucket).
 name: Build catalogue
 
 on:
-  # Discogs publishes each month's dump on the 1st; build on the 3rd to give it time.
-  schedule:
-    - cron: "0 4 3 * *"
   workflow_dispatch:
     inputs:
       dump:
@@ -34,7 +36,7 @@ jobs:
     timeout-minutes: 330
     env:
       WORK: /mnt/catalogue
-      # Scheduled runs have no inputs, so fall back to the defaults.
+      # Empty inputs fall back to the defaults.
       KEY: ${{ inputs.key || 'vinyl/current.pack' }}
       LIMIT: ${{ inputs.limit || '0' }}
     steps:
