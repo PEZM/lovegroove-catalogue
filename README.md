@@ -27,7 +27,7 @@ worker/  (Cloudflare Worker) answers lookups, one block read each
 | `pack_catalogue.py` | Turns that into one packed file (format v3) in which every lookup is a single block read. |
 | `r2_upload.py` | Uploads a file to R2 with Python's standard library only (64 MB parts, retries, aborts cleanly on failure). `--check` just tests the key. |
 | `mac/` | The monthly build on a Mac: script, scheduler install, Keychain setup. See [mac/README.md](mac/README.md). |
-| `worker/` | Cloudflare Worker: `/release/:id`, `/master/:id`, `/barcode/:digits`, `/search?q=`. Live at **https://catalogue.lovegroove.app** (`wrangler.production.jsonc`); the test copy (`wrangler.jsonc`) stays until old TestFlight builds expire. Deploy both after a code change. |
+| `worker/` | Cloudflare Worker: `/release/:id`, `/master/:id`, `/barcode/:digits`, `/search?q=`. Live at **https://catalogue.lovegroove.app** (`wrangler.production.jsonc`). |
 | `.github/workflows/build-catalogue.yml` | Same build on GitHub, manual backup only (see below). |
 
 ## Where the monthly build runs
@@ -66,7 +66,6 @@ Pablo's Mac.
 | --- | --- | --- |
 | The data | R2 bucket `lovegroove-catalogue`, file `vinyl/current.pack` | The only file in the bucket. Private: no public or r2.dev address |
 | Live address | Worker `lovegroove-catalogue` at **https://catalogue.lovegroove.app** (Custom Domain) | What the iPhone app uses. Config `worker/wrangler.production.jsonc` |
-| Test address | Worker `lovegroove-catalogue-test` at `lovegroove-catalogue-test.hapticmatter-site.workers.dev` | Older TestFlight builds only. Delete when Pablo says they've expired. Config `worker/wrangler.jsonc` |
 | Monthly build | Pablo's Mac, launchd job `app.lovegroove.catalogue` | 10:00 on the 3rd–7th; see [mac/README.md](mac/README.md) |
 | Write key | R2 API token (18 Nov 2026), stored only in the Mac's Keychain (`lovegroove-r2`) | The only key that can change the bucket |
 
@@ -89,11 +88,12 @@ launchctl print gui/$(id -u)/app.lovegroove.catalogue | grep state
 tail -30 ~/Library/Logs/LovegrooveCatalogue/$(date -u +%Y%m01).log
 ```
 
-**Changing the Worker's code:** edit `worker/src/`, then from `worker/` deploy both copies:
-`npx wrangler deploy -c wrangler.production.jsonc` and `npx wrangler deploy`.
+**Changing the Worker's code:** edit `worker/src/`, then from `worker/` run
+`npx wrangler deploy -c wrangler.production.jsonc`. (The test Worker,
+`lovegroove-catalogue-test`, was deleted on 19 November 2026; there is now only one.)
 
 **In the Cloudflare dashboard** (https://dash.cloudflare.com):
-- **Compute → Workers & Pages**: the two Workers, their domains, requests and errors.
+- **Compute → Workers & Pages**: the Worker, its domain, requests and errors.
 - **Storage & databases → R2 Object Storage**: the bucket, usage this month, and
   **Manage API Tokens** (under Account Details).
 - **Manage account → Notifications**: the $1 budget alert.
@@ -133,20 +133,18 @@ and Apple, and everything can be brought back from this repo.
 | R2 key may have leaked | **Step 2** and **step 3** |
 | Cloudflare login may have leaked | Change the password / sign out other sessions, check two-factor, then **step 3** and check the Workers and bucket |
 
-**1. Stop all reads (takes the catalogue offline).** Nothing reads R2 except the Workers.
+**1. Stop all reads (takes the catalogue offline).** Nothing reads R2 except the Worker.
 - Dashboard: **Compute → Workers & Pages** → `lovegroove-catalogue` → **Settings → Domains &
-  Routes** → remove `catalogue.lovegroove.app`. Then `lovegroove-catalogue-test` → same place →
-  disable **workers.dev**. Undo: add the domain back, turn workers.dev on.
+  Routes** → remove `catalogue.lovegroove.app`. Undo: add the domain back.
 - Or Terminal (all settings are in the repo, so this is easy to undo):
 
   ```bash
   cd "/Users/pablo/Documents/Haptic Matter/Apps/Lovegroove/Code/Catalogue/worker"
-  npx wrangler delete --name lovegroove-catalogue
-  npx wrangler delete --name lovegroove-catalogue-test
+  npx wrangler delete lovegroove-catalogue
   ```
 
   Bring back: `npx wrangler deploy -c wrangler.production.jsonc` (this also brings back
-  `catalogue.lovegroove.app`) and, while TestFlight builds still need it, `npx wrangler deploy`.
+  `catalogue.lovegroove.app`).
 
 **2. Stop the monthly upload.**
 

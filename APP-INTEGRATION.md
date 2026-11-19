@@ -101,11 +101,9 @@ falling through to today's MusicBrainz code. `get(_:)` keeps refusing Discogs ca
 **Address for the app: `https://catalogue.lovegroove.app`** (permanent, live since
 18 November 2026; Worker `lovegroove-catalogue`, config `worker/wrangler.production.jsonc`).
 
-Test address, for TestFlight builds made before the switch only:
-`https://lovegroove-catalogue-test.hapticmatter-site.workers.dev` (Worker
-`lovegroove-catalogue-test`, config `worker/wrangler.jsonc`). Both serve the same R2 file with the
-same code, limit (120 a minute, separate counters) and `Cache-Control`. Deploy code changes to
-both: `npx wrangler deploy` and `npx wrangler deploy -c wrangler.production.jsonc` in `worker/`.
+The test address (`lovegroove-catalogue-test.hapticmatter-site.workers.dev`) was deleted on
+19 November 2026 and now answers 404; builds that still use it fall back to MusicBrainz and
+Apple. Deploy code changes with `npx wrangler deploy -c wrangler.production.jsonc` in `worker/`.
 
 Keep the address in one constant. All replies are JSON; every success also carries `source`
 ("Discogs data dump (CC0)"), `catalogue` (the dump date, e.g. "20261101") and `timing`
@@ -259,7 +257,7 @@ month, and checks 1, 2 and 5 still pass. The Worker picks up the new file by its
 | 2 | iOS | Checklist on the Simulator and phone; Pablo's decisions 1–3 | **Done 18 Nov 2026.** Checks 1–12 and 14 pass on the Simulator; check 13 (`discogsCatalogue = true`) checked by reading the code only, to keep Discogs' API untouched. Decisions made (above) |
 | 3 | Catalogue (`Code/Catalogue`) | Permanent address `catalogue.lovegroove.app` | **Done 18 Nov 2026.** Own Worker `lovegroove-catalogue`; every known record checked there, unknown release 404, rate limit 429 with `Retry-After: 60`; $1 budget alert confirmed in place |
 | 3a | iOS | Set the app's constant to `https://catalogue.lovegroove.app` | **Done 18 Nov 2026** on the branch (installed on Pablo's iPhone; to be committed) |
-| 3b | Catalogue | Delete the `lovegroove-catalogue-test` Worker | **Wait** until Pablo says the TestFlight builds using it have expired |
+| 3b | Catalogue | Delete the `lovegroove-catalogue-test` Worker | **Done 19 Nov 2026** after the new TestFlight build went up; test address now 404, `catalogue.lovegroove.app` checked |
 | 4 | Web (`Code/Web`) | Privacy policy: record lookups now reach Lovegroove's catalogue server | **On hold** (Pablo, 18 Nov 2026): do it once the catalogue is going to ship, or before external TestFlight testers get a build |
 | 5 | iOS | Docs (`CLAUDE.md`, README "Before release", `Services.swift` comment), TestFlight, then release | To do |
 
@@ -277,12 +275,6 @@ Steps 3a and 4 must be done before the App Store release.
 > for vinyl, else today's MusicBrainz and Apple. Add unit tests for the JSON with the sample
 > replies, then run the testing checklist on the Simulator and tell me the results, with the
 > three decisions for me. Don't commit until I say.
-
-**Catalogue chat** (`Code/Catalogue`), step 3b (only when Pablo says):
-
-> Read `APP-INTEGRATION.md`. Do step 3b: the TestFlight builds that used the test address
-> have expired, so delete the `lovegroove-catalogue-test` Worker (not `lovegroove-catalogue`),
-> then check `https://catalogue.lovegroove.app` still answers.
 
 **Web chat** (`Code/Web`), step 4:
 

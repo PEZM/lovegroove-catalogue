@@ -88,7 +88,7 @@ async function route(url, env, ctx) {
 }
 
 // Lookups allowed per visitor (IP address) per minute, counted in each Cloudflare
-// location. Set in wrangler.jsonc; keeps a flood of uncached lookups off R2's bill.
+// location. Set in wrangler.production.jsonc; keeps a flood of uncached lookups off R2's bill.
 async function allowed(request, env) {
   if (!env.LIMITER) return true;
   const ip = request.headers.get('cf-connecting-ip') || 'unknown';
