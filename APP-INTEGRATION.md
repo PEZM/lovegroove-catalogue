@@ -181,7 +181,7 @@ Replies carry `Cache-Control: public, max-age=86400`. Send the User-Agent
 
 ## As built in the iPhone app (18 Nov 2026)
 
-Branch `lovegroove-catalogue` in `Code/iOS` (not merged into main yet). Client:
+In `Code/iOS` main (built on branch `lovegroove-catalogue`, merged). Client:
 `Lovegroove/LovegrooveCatalogue.swift`; tests: `LovegrooveTests/CatalogueTests.swift`.
 
 - Barcode results: official pressings first, then those with "Unofficial Release".
@@ -253,15 +253,15 @@ month, and checks 1, 2 and 5 still pass. The Worker picks up the new file by its
 
 | # | Chat (folder) | What | Status |
 | --- | --- | --- | --- |
-| 1 | iOS (`Code/iOS`) | Catalogue client and switch; the changes above; unit tests for the JSON with the sample replies | **Done 18 Nov 2026** on branch `lovegroove-catalogue` (commit 165ebfa), not merged into main; 13 catalogue unit tests in `LovegrooveTests/CatalogueTests.swift` |
+| 1 | iOS (`Code/iOS`) | Catalogue client and switch; the changes above; unit tests for the JSON with the sample replies | **Done 18 Nov 2026** (commit 165ebfa, branch `lovegroove-catalogue`), now in main; 13 catalogue unit tests in `LovegrooveTests/CatalogueTests.swift` |
 | 2 | iOS | Checklist on the Simulator and phone; Pablo's decisions 1–3 | **Done 18 Nov 2026.** Checks 1–12 and 14 pass on the Simulator; check 13 (`discogsCatalogue = true`) checked by reading the code only, to keep Discogs' API untouched. Decisions made (above) |
 | 3 | Catalogue (`Code/Catalogue`) | Permanent address `catalogue.lovegroove.app` | **Done 18 Nov 2026.** Own Worker `lovegroove-catalogue`; every known record checked there, unknown release 404, rate limit 429 with `Retry-After: 60`; $1 budget alert confirmed in place |
-| 3a | iOS | Set the app's constant to `https://catalogue.lovegroove.app` | **Done 18 Nov 2026** on the branch (installed on Pablo's iPhone; to be committed) |
+| 3a | iOS | Set the app's constant to `https://catalogue.lovegroove.app` | **Done 18 Nov 2026** (commit 9dd2506, in main; in TestFlight builds 1.0.1 (71) and later) |
 | 3b | Catalogue | Delete the `lovegroove-catalogue-test` Worker | **Done 19 Nov 2026** after the new TestFlight build went up; test address now 404, `catalogue.lovegroove.app` checked |
 | 4 | Web (`Code/Web`) | Privacy policy: record lookups now reach Lovegroove's catalogue server | **On hold** (Pablo, 18 Nov 2026): do it once the catalogue is going to ship, or before external TestFlight testers get a build |
-| 5 | iOS | Docs (`CLAUDE.md`, README "Before release", `Services.swift` comment), TestFlight, then release | To do |
+| 5 | iOS | Docs (`CLAUDE.md`, README "Before release", `Services.swift` comment), TestFlight, then release | **Docs and TestFlight done 19 Nov 2026** (commit bc63e7d; 1.0.1 (72) on TestFlight). App Store release to do, after step 4 |
 
-Steps 3a and 4 must be done before the App Store release.
+Step 4 must be done before the App Store release.
 
 ## Prompts
 
