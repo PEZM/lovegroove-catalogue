@@ -258,10 +258,10 @@ month, and checks 1, 2 and 5 still pass. The Worker picks up the new file by its
 | 3 | Catalogue (`Code/Catalogue`) | Permanent address `catalogue.lovegroove.app` | **Done 18 Nov 2026.** Own Worker `lovegroove-catalogue`; every known record checked there, unknown release 404, rate limit 429 with `Retry-After: 60`; $1 budget alert confirmed in place |
 | 3a | iOS | Set the app's constant to `https://catalogue.lovegroove.app` | **Done 18 Nov 2026** (commit 9dd2506, in main; in TestFlight builds 1.0.1 (71) and later) |
 | 3b | Catalogue | Delete the `lovegroove-catalogue-test` Worker | **Done 19 Nov 2026** after the new TestFlight build went up; test address now 404, `catalogue.lovegroove.app` checked |
-| 4 | Web (`Code/Web`) | Privacy policy: record lookups now reach Lovegroove's catalogue server | **On hold** (Pablo, 18 Nov 2026): do it once the catalogue is going to ship, or before external TestFlight testers get a build |
-| 5 | iOS | Docs (`CLAUDE.md`, README "Before release", `Services.swift` comment), TestFlight, then release | **Docs and TestFlight done 19 Nov 2026** (commit bc63e7d; 1.0.1 (72) on TestFlight). App Store release to do, after step 4 |
+| 4 | Web (`Code/Web`) | Privacy policy: record lookups now reach Lovegroove's catalogue server | **Done 21 Nov 2026.** Live at lovegroove.app/privacy (Web commit 3d889de), effective 21 November 2026: the catalogue keeps no record of what was looked up or who asked. So the Worker's request logging is off (`"observability": { "enabled": false }` in `worker/wrangler.production.jsonc`, redeployed and checked 21 Nov) and must stay off |
+| 5 | iOS | Docs (`CLAUDE.md`, README "Before release", `Services.swift` comment), TestFlight, then release | **Docs and TestFlight done 19 Nov 2026** (commit bc63e7d; 1.0.1 (72) on TestFlight). App Store release to do; no longer waiting on step 4 |
 
-Step 4 must be done before the App Store release.
+Nothing else has to be done before the App Store release (step 4 done 21 Nov 2026).
 
 ## Prompts
 

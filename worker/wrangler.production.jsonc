@@ -8,6 +8,11 @@
   // Only the custom domain below; no workers.dev address.
   "workers_dev": false,
   "preview_urls": false,
+  // Request logging off (21 Nov 2026): Haptic Matter keeps no record of individual
+  // lookups, as the privacy policy says. Turn on only briefly to chase a fault.
+  "observability": {
+    "enabled": false
+  },
   // A Custom Domain: Cloudflare adds the catalogue.lovegroove.app DNS record and
   // certificate itself. lovegroove.app's own site, records and routes are untouched.
   "routes": [
